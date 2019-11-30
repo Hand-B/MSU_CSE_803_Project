@@ -20,7 +20,7 @@ random.seed(204892)
 
 def getData(w,h):
     
-    files = "./training/Photos"
+    files = "./training/cropped"
     training_label =[]
     training_data = []
     test_label =[]
@@ -51,21 +51,49 @@ def getData(w,h):
     test_label = np.array(test_label)
     return (training_data, training_label) , (test_data,test_label),names
     
+def getTestData(w,h):
+    files = "./test"
+    test_label =[]
+    test_data = []
+    test_names = set([])
+    with open(os.path.join(files, 'label.txt')) as file:
+        lines = file.readlines()
+        for line in lines:
+            filename = line.split()[0]
+            classnames = line.split()[1:]
+            img = Image.open(os.path.join(files,filename )).convert("LA").resize((w,h))
+            imgArr = np.array(img)
+            img.close()
+            test_data.append(imgArr)
+            test_label.append(classnames)
+            test_names.update(set(classnames))
+    test_data = np.array(test_data)
+    test_label = np.array(test_label)
+    return test_data,test_label,test_names
 
+
+def getTestAccuracy(model,imgs,labels,classnames):  
+    error = 0
+    for img,label in zip(imgs,labels):
+        prediction = model.predict(img)
+        classname = classnames[np.argmax(prediction)]
+        if classname not in label:
+            error += 1
+    return error/len(imgs)
+            
 
 widthImage =280
 hieghtImage = 240
+
+final_test_imgs,final_test_label,final_names = getTestData(widthImage,hieghtImage)
 #(train_images, train_labels), (test_images, test_labels) = datasets.cifar10.load_data()
 (train_images, train_labels), (test_images, test_labels),class_names  = getData(widthImage,hieghtImage)
 print(len(train_images))
+print(final_names-set(class_names))
+
 # Normalize pixel values to be between 0 and 1
 train_images, test_images = train_images / 255.0, test_images / 255.0
 
-banana = np.array(Image.open("banana.jpg").convert("LA").resize((widthImage,hieghtImage))) / 255.0
-banana = np.array([banana])
-
-
-print(train_images[2])
 
 channelImage = 2
 modelShape = (hieghtImage,widthImage, channelImage)
@@ -104,6 +132,6 @@ plt.ylim([0.5, 1])
 plt.legend(loc='lower right')
 
 test_loss, test_acc = model.evaluate(test_images,  test_labels, verbose=2)
-prediction = model.predict(banana)
-print(class_names[np.argmax(prediction)])
-print(np.unique(test_labels, return_counts=True))
+test_error = getTestAccuracy(model,final_test_imgs,final_test_label,class_names)
+print(test_error)
+model.save("project_model")
